@@ -1,0 +1,12 @@
+services:
+  mongodb:
+    image: mongo:8
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mappin-data:/data/db
+
+volumes:
+  mappin-data:
+

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="%LANG_ISO_CODE%">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta name="description" content="Save meaningful places as simple pins on an interactive map." />
+    <meta name="theme-color" content="#07122b" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icon-512.png" />
+    <title>%WEB_TITLE%</title>
+    <style>
+      html, body, #root { height: 100%; margin: 0; width: 100%; }
+      body { background: #07122b; overflow: hidden; }
+      #root { display: flex; flex: 1; }
+    </style>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          var isExportedBuild = Array.prototype.some.call(document.scripts, function (script) {
+            return script.src.indexOf('/_expo/static/') !== -1;
+          });
+
+          if (isExportedBuild) {
+            navigator.serviceWorker.register('/sw.js').catch(function (error) {
+              console.error('Service worker registration failed:', error);
+            });
+          } else {
+            navigator.serviceWorker.getRegistrations().then(function (registrations) {
+              registrations.forEach(function (registration) {
+                registration.unregister();
+              });
+            });
+          }
+        });
+      }
+    </script>
+  </head>
+  <body>
+    <noscript>MapPin requires JavaScript to run.</noscript>
+    <div id="root"></div>
+  </body>
+</html>
