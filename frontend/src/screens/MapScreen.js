@@ -14,7 +14,10 @@ import PlatformMap from '../components/MapView';
 import PinFormModal from '../components/PinFormModal';
 import ThemeToggleButton from '../components/ThemeToggleButton';
 import { useTheme } from '../context/ThemeContext';
+<<<<<<< HEAD
 import useExternalMapStatus from '../hooks/useExternalMapStatus';
+=======
+>>>>>>> c231a7b (feat: frontend v2)
 import usePins from '../hooks/usePins';
 
 export default function MapScreen() {
@@ -159,6 +162,7 @@ export default function MapScreen() {
           )}
           <Text style={[styles.storageText, { color: colors.text }]}>{storageLabel}</Text>
         </View>
+<<<<<<< HEAD
 
         <View
           accessibilityLabel={mapStatusLabel}
@@ -186,6 +190,8 @@ export default function MapScreen() {
             ) : null}
           </View>
         </View>
+=======
+>>>>>>> c231a7b (feat: frontend v2)
 
         {locationMessage ? (
           <View
@@ -301,6 +307,7 @@ const styles = StyleSheet.create({
   },
   statusDot: { borderRadius: 5, height: 10, width: 10 },
   storageText: { fontSize: 12, fontWeight: '700', marginLeft: 7 },
+<<<<<<< HEAD
   mapStatusBadge: {
     alignItems: 'center',
     borderRadius: 14,
@@ -320,6 +327,8 @@ const styles = StyleSheet.create({
   mapStatusContent: { flex: 1, marginLeft: 7 },
   mapStatusText: { fontSize: 12, fontWeight: '700' },
   mapStatusHint: { fontSize: 11, lineHeight: 15, marginTop: 2 },
+=======
+>>>>>>> c231a7b (feat: frontend v2)
   message: {
     borderRadius: 12,
     borderWidth: 1,
