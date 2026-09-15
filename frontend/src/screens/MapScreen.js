@@ -118,11 +118,6 @@ export default function MapScreen() {
   const modalCoordinate = editingPin
     ? { latitude: editingPin.latitude, longitude: editingPin.longitude }
     : pendingCoordinate;
-  const mapStatusColor = mapUnavailable
-    ? colors.warning
-    : mapState === 'loading'
-      ? colors.info
-      : colors.success;
 
   return (
     <SafeAreaView edges={['top']} style={[styles.screen, { backgroundColor: colors.background }]}>
@@ -138,104 +133,107 @@ export default function MapScreen() {
         />
 
         <View pointerEvents="box-none" style={styles.topBar}>
-          <View style={[styles.brand, styles.floatingShadow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <View style={[styles.brandIcon, { backgroundColor: colors.primary }]}>
-              <View style={styles.brandIconCenter} />
-            </View>
-            <View style={styles.brandCopy}>
+          <View style={[styles.brand, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={[styles.brandMark, { backgroundColor: colors.primary }]} />
+            <View>
               <Text style={[styles.brandTitle, { color: colors.text }]}>MapPin</Text>
-              <Text style={[styles.brandSubtitle, { color: colors.textMuted }]}>Seus lugares, sempre com você</Text>
+              <Text style={[styles.brandSubtitle, { color: colors.textMuted }]}>
+                Toque no mapa para salvar um lugar
+              </Text>
             </View>
           </View>
           <ThemeToggleButton />
         </View>
 
         <View
-          accessibilityLabel={`${storageLabel}. ${mapStatusLabel}`}
+          accessibilityLabel={storageLabel}
           style={[
-            styles.statusPanel,
-            styles.floatingShadow,
+            styles.storageBadge,
             { backgroundColor: colors.surface, borderColor: colors.border },
           ]}
         >
-          <View style={styles.statusRow}>
-            <View style={[styles.statusIcon, { backgroundColor: colors.surfaceMuted }]}>
-              {saving ? (
-                <ActivityIndicator color={colors.primary} size="small" />
-              ) : (
-                <Text style={[styles.statusCount, { color: colors.primary }]}>{pins.length}</Text>
-              )}
-            </View>
-            <View style={styles.statusCopy}>
-              <Text style={[styles.statusEyebrow, { color: colors.textMuted }]}>BANCO LOCAL</Text>
-              <Text style={[styles.statusValue, { color: colors.text }]}>
-                {saving ? 'Salvando neste dispositivo…' : `${pins.length} ${pins.length === 1 ? 'lugar salvo' : 'lugares salvos'}`}
+          {saving ? (
+            <ActivityIndicator color={colors.info} size="small" />
+          ) : (
+            <View style={[styles.statusDot, { backgroundColor: colors.info }]} />
+          )}
+          <Text style={[styles.storageText, { color: colors.text }]}>{storageLabel}</Text>
+        </View>
+
+        <View
+          accessibilityLabel={mapStatusLabel}
+          style={[
+            styles.mapStatusBadge,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
+          {mapState === 'loading' && !mapUnavailable ? (
+            <ActivityIndicator color={colors.info} size="small" />
+          ) : (
+            <View
+              style={[
+                styles.statusDot,
+                { backgroundColor: mapUnavailable ? colors.warning : colors.info },
+              ]}
+            />
+          )}
+          <View style={styles.mapStatusContent}>
+            <Text style={[styles.mapStatusText, { color: colors.text }]}>{mapStatusLabel}</Text>
+            {mapUnavailable ? (
+              <Text style={[styles.mapStatusHint, { color: colors.textMuted }]}>
+                Os marcadores e o CRUD continuam funcionando no SQLite local.
               </Text>
-            </View>
-          </View>
-
-          <View style={[styles.statusDivider, { backgroundColor: colors.border }]} />
-
-          <View style={styles.statusRow}>
-            <View style={[styles.connectionIcon, { backgroundColor: colors.surfaceMuted }]}>
-              {mapState === 'loading' && !mapUnavailable ? (
-                <ActivityIndicator color={colors.info} size="small" />
-              ) : (
-                <View style={[styles.statusDot, { backgroundColor: mapStatusColor }]} />
-              )}
-            </View>
-            <View style={styles.statusCopy}>
-              <Text style={[styles.statusEyebrow, { color: colors.textMuted }]}>MAPA EXTERNO</Text>
-              <Text style={[styles.statusValue, { color: colors.text }]}>{mapStatusLabel}</Text>
-              {mapUnavailable ? (
-                <Text style={[styles.statusHint, { color: colors.textMuted }]}>Seus lugares continuam disponíveis offline.</Text>
-              ) : null}
-            </View>
+            ) : null}
           </View>
         </View>
 
-        <View pointerEvents="box-none" style={styles.bottomStack}>
-          {locationMessage ? (
-            <View style={[styles.message, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={[styles.messageDot, { backgroundColor: colors.info }]} />
-              <Text style={[styles.messageText, { color: colors.textMuted }]}>{locationMessage}</Text>
-            </View>
-          ) : null}
-
-          {databaseError ? (
-            <View style={[styles.message, { backgroundColor: colors.surface, borderColor: colors.danger }]}>
-              <View style={[styles.messageDot, { backgroundColor: colors.danger }]} />
-              <Text style={[styles.messageText, { color: colors.danger }]}>{databaseError}</Text>
-              <Pressable accessibilityRole="button" onPress={retry} style={styles.retryButton}>
-                <Text style={[styles.retry, { color: colors.primary }]}>Tentar novamente</Text>
-              </Pressable>
-            </View>
-          ) : null}
-
-          {notice ? (
-            <View style={[styles.message, { backgroundColor: colors.surface, borderColor: colors.success }]}>
-              <View style={[styles.messageDot, { backgroundColor: colors.success }]} />
-              <Text style={[styles.messageText, { color: colors.text }]}>{notice}</Text>
-            </View>
-          ) : null}
-
-          {!ready ? (
-            <View style={[styles.message, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <ActivityIndicator color={colors.primary} size="small" />
-              <Text style={[styles.messageText, styles.loadingText, { color: colors.textMuted }]}>Carregando dados locais</Text>
-            </View>
-          ) : null}
-
-          <View pointerEvents="none" style={[styles.actionHint, styles.floatingShadow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <View style={[styles.actionHintIcon, { backgroundColor: colors.primary }]}>
-              <Text style={[styles.actionHintPlus, { color: colors.onPrimary }]}>+</Text>
-            </View>
-            <View style={styles.actionHintCopy}>
-              <Text style={[styles.actionHintTitle, { color: colors.text }]}>Adicionar um lugar</Text>
-              <Text style={[styles.actionHintSubtitle, { color: colors.textMuted }]}>Toque em qualquer ponto do mapa</Text>
-            </View>
+        {locationMessage ? (
+          <View
+            style={[
+              styles.message,
+              styles.locationMessage,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.messageText, { color: colors.textMuted }]}>{locationMessage}</Text>
           </View>
-        </View>
+        ) : null}
+
+        {databaseError ? (
+          <View
+            style={[
+              styles.message,
+              styles.databaseMessage,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.messageText, { color: colors.danger }]}>{databaseError}</Text>
+            <Pressable accessibilityRole="button" onPress={retry}>
+              <Text style={[styles.retry, { color: colors.primary }]}>Tentar novamente</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        {notice ? (
+          <View
+            style={[
+              styles.message,
+              styles.noticeMessage,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.messageText, { color: colors.textMuted }]}>{notice}</Text>
+          </View>
+        ) : null}
+
+        {!ready ? (
+          <View style={[styles.loadingBadge, { backgroundColor: colors.surface }]}>
+            <ActivityIndicator color={colors.primary} size="small" />
+            <Text style={[styles.loadingText, { color: colors.textMuted }]}>
+              Carregando dados locais
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       <PinFormModal
@@ -243,10 +241,6 @@ export default function MapScreen() {
         onCancel={() => {
           setPendingCoordinate(null);
           setEditingPin(null);
-        }}
-        onDelete={(pin) => {
-          setEditingPin(null);
-          requestDeletePin(pin);
         }}
         onSubmit={handleSubmit}
         pin={editingPin}
@@ -260,7 +254,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   mapContainer: { flex: 1, overflow: 'hidden' },
   topBar: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flexDirection: 'row',
     justifyContent: 'space-between',
     left: 14,
@@ -271,94 +265,87 @@ const styles = StyleSheet.create({
   },
   brand: {
     alignItems: 'center',
-    borderRadius: 18,
+    borderRadius: 14,
     borderWidth: 1,
+    elevation: 4,
     flexDirection: 'row',
-    maxWidth: 320,
-    minHeight: 56,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  floatingShadow: {
-    elevation: 5,
+    maxWidth: 290,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.16,
-    shadowRadius: 8,
+    shadowOpacity: 0.18,
+    shadowRadius: 5,
   },
-  brandIcon: {
-    alignItems: 'center',
-    borderRadius: 14,
-    height: 38,
-    justifyContent: 'center',
-    width: 38,
+  brandMark: {
+    borderRadius: 10,
+    height: 20,
+    marginRight: 9,
+    transform: [{ rotate: '45deg' }],
+    width: 20,
   },
-  brandIconCenter: { backgroundColor: '#ffffff', borderRadius: 5, height: 10, width: 10 },
-  brandCopy: { marginLeft: 10 },
-  brandTitle: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3, lineHeight: 20 },
+  brandTitle: { fontSize: 17, fontWeight: '800', lineHeight: 19 },
   brandSubtitle: { fontSize: 11, marginTop: 2 },
-  statusPanel: {
+  storageBadge: {
+    alignItems: 'center',
     borderRadius: 18,
     borderWidth: 1,
+    elevation: 3,
+    flexDirection: 'row',
     left: 14,
-    maxWidth: 390,
-    paddingHorizontal: 13,
-    paddingVertical: 11,
+    minHeight: 36,
+    paddingHorizontal: 12,
     position: 'absolute',
-    right: 14,
     top: 82,
     zIndex: 1100,
   },
-  statusRow: { alignItems: 'center', flexDirection: 'row', minHeight: 38 },
-  statusIcon: {
+  statusDot: { borderRadius: 5, height: 10, width: 10 },
+  storageText: { fontSize: 12, fontWeight: '700', marginLeft: 7 },
+  mapStatusBadge: {
     alignItems: 'center',
-    borderRadius: 12,
-    height: 38,
-    justifyContent: 'center',
-    width: 38,
+    borderRadius: 14,
+    borderWidth: 1,
+    elevation: 3,
+    flexDirection: 'row',
+    left: 14,
+    maxWidth: 360,
+    minHeight: 36,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    position: 'absolute',
+    right: 14,
+    top: 126,
+    zIndex: 1100,
   },
-  statusCount: { fontSize: 17, fontWeight: '800' },
-  connectionIcon: { alignItems: 'center', borderRadius: 12, height: 38, justifyContent: 'center', width: 38 },
-  statusDot: { borderRadius: 6, height: 11, width: 11 },
-  statusCopy: { flex: 1, marginLeft: 10 },
-  statusEyebrow: { fontSize: 9, fontWeight: '800', letterSpacing: 0.8 },
-  statusValue: { fontSize: 12, fontWeight: '700', lineHeight: 16, marginTop: 1 },
-  statusHint: { fontSize: 10, lineHeight: 14, marginTop: 1 },
-  statusDivider: { height: 1, marginVertical: 8 },
-  bottomStack: {
-    bottom: 16,
+  mapStatusContent: { flex: 1, marginLeft: 7 },
+  mapStatusText: { fontSize: 12, fontWeight: '700' },
+  mapStatusHint: { fontSize: 11, lineHeight: 15, marginTop: 2 },
+  message: {
+    borderRadius: 12,
+    borderWidth: 1,
     left: 14,
     maxWidth: 520,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
     position: 'absolute',
     right: 14,
     zIndex: 1100,
   },
-  message: {
-    alignItems: 'center',
-    borderRadius: 12,
-    borderWidth: 1,
-    flexDirection: 'row',
-    marginBottom: 8,
-    paddingHorizontal: 13,
-    paddingVertical: 10,
-  },
-  messageDot: { borderRadius: 4, height: 8, marginRight: 9, width: 8 },
-  messageText: { flex: 1, fontSize: 12, lineHeight: 17 },
-  retryButton: { marginLeft: 10, paddingVertical: 3 },
+  locationMessage: { bottom: 18 },
+  databaseMessage: { bottom: 74, flexDirection: 'row', justifyContent: 'space-between' },
+  noticeMessage: { bottom: 130 },
+  messageText: { flex: 1, fontSize: 13 },
   retry: { fontSize: 13, fontWeight: '700', marginLeft: 14 },
-  loadingText: { marginLeft: 9 },
-  actionHint: {
+  loadingBadge: {
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    borderRadius: 17,
-    borderWidth: 1,
+    borderRadius: 18,
+    bottom: 18,
     flexDirection: 'row',
-    minWidth: 255,
-    padding: 9,
+    left: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    position: 'absolute',
+    zIndex: 1100,
   },
-  actionHintIcon: { alignItems: 'center', borderRadius: 12, height: 38, justifyContent: 'center', width: 38 },
-  actionHintPlus: { fontSize: 26, fontWeight: '400', lineHeight: 28 },
-  actionHintCopy: { marginLeft: 10 },
-  actionHintTitle: { fontSize: 13, fontWeight: '800' },
-  actionHintSubtitle: { fontSize: 11, marginTop: 2 },
+  loadingText: { fontSize: 12, marginLeft: 7 },
 });

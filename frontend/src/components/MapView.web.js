@@ -139,7 +139,7 @@ export default function PlatformMap({
         ))}
       </MapContainer>
       <style>
-        {`.leaflet-top.leaflet-left { top: 178px; }
+        {`.leaflet-top.leaflet-left { top: 72px; }
           ${theme === 'dark' ? '.mappin-dark-tiles { filter: brightness(.72) contrast(1.18) saturate(.65); }' : ''}`}
       </style>
     </div>
