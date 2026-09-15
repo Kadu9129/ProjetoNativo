@@ -39,8 +39,8 @@
         {
           "locationWhenInUsePermission": "Allow MapPin to use your location to center the map."
         }
-      ]
+      ],
+      "expo-sqlite"
     ]
   }
 }
-

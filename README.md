@@ -1,118 +1,96 @@
 # MapPin App
 
-Aplicativo único em Expo/React Native para web, iOS e Android, integrado a uma API REST construída com Express e Mongoose. O usuário pode centralizar o mapa em sua localização, criar, editar e excluir lugares com nome e descrição, inclusive sem internet. As alterações são armazenadas no dispositivo e sincronizadas automaticamente quando a conexão retorna.
+Aplicativo Expo/React Native para web, iOS e Android. O usuário pode centralizar o mapa em sua localização e cadastrar, editar ou excluir lugares com nome e descrição.
+
+Todos os lugares são armazenados exclusivamente no dispositivo em um banco SQLite. O aplicativo não possui backend, não usa MongoDB e não envia os dados cadastrados para um servidor. Somente o mapa da plataforma e os tiles do OpenStreetMap na versão web dependem de serviços externos e conexão com a internet.
 
 ## Requisitos
 
-- Node.js 20.19 ou superior
+- Node.js 22.5 ou superior (necessário para os testes de persistência SQLite)
 - npm
-- MongoDB 8 instalado localmente ou uma URI de conexão com MongoDB
-- Expo Go ou um simulador nativo para testes em dispositivos móveis
+- Expo Go ou um emulador/dispositivo para os testes móveis
 
-## Instalação
+## Instalação e execução
 
-A partir da raiz do repositório:
+Na raiz do repositório:
 
 ```bash
 npm install
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env
-```
-
-Inicie o MongoDB usando uma instalação existente ou o Docker:
-
-```bash
-docker compose up -d mongodb
-```
-
-## Execução
-
-Abra dois terminais na raiz do repositório. No primeiro, execute o backend:
-
-```bash
-npm run dev:backend
-```
-
-No segundo, execute o aplicativo:
-
-```bash
 npm run dev:frontend
 ```
 
-No terminal do Expo, pressione `w`, `a` ou `i` para abrir o aplicativo na web, no Android ou no iOS. O endpoint de verificação da API está disponível em `http://localhost:3000/api/health`.
+No terminal do Expo, pressione `w`, `a` ou `i` para abrir o aplicativo na web, Android ou iOS. Nenhum arquivo `.env`, banco externo ou serviço de backend é necessário.
 
-O projeto móvel utiliza o Expo SDK 54 e pode ser aberto diretamente pelo aplicativo público Expo Go. Caso o Expo Go tenha armazenado um bundle antigo e incompatível, feche-o completamente, execute `npx expo start --clear` e escaneie o novo código QR.
+O projeto utiliza Expo SDK 54. Caso o Expo Go tenha armazenado um bundle incompatível, feche-o, execute `npx expo start --clear` e leia novamente o QR code.
 
-A versão web e o simulador de iOS podem usar `EXPO_PUBLIC_API_URL=http://localhost:3000`. Durante o desenvolvimento no Expo Go, o aplicativo substitui automaticamente `localhost` pelo endereço de rede local informado pelo Metro. Em emuladores Android, o endereço alternativo é `http://10.0.2.2:3000`. Também é possível definir explicitamente o endereço de rede do computador em `frontend/.env`.
+## Banco de dados local
 
-Na web, o Leaflet utiliza os tiles do OpenStreetMap e exibe a atribuição necessária. As versões nativas usam o mapa da plataforma fornecido pelo `react-native-maps`. A implementação `UrlTile` dessa biblioteca não consegue atender aos requisitos de identificação e cache do serviço comunitário `tile.openstreetmap.org` e, por isso, não aponta para esse serviço.
+O banco `mappin.db` é criado automaticamente pelo `expo-sqlite` na primeira abertura. A tabela `pins` guarda:
 
-## Build da PWA
+| Campo | Uso |
+| --- | --- |
+| `id` | Identificador local único |
+| `name` | Nome do lugar |
+| `description` | Descrição do lugar |
+| `latitude` e `longitude` | Coordenadas do marcador |
+| `created_at` e `updated_at` | Datas de criação e atualização |
+
+As operações de cadastrar, consultar, editar e excluir são executadas diretamente nessa tabela. Os dados sobrevivem ao fechamento e à reinicialização do aplicativo.
+
+Ao atualizar uma instalação antiga, os marcadores antes guardados no `AsyncStorage` são importados uma única vez para o SQLite. A preferência de tema continua no `AsyncStorage`, também local ao dispositivo.
+
+## Funcionamento offline
+
+Os marcadores e todas as alterações funcionam sem internet porque o CRUD não depende de API. O fundo cartográfico é externo: sem conexão, tiles ainda não armazenados pelo provedor podem deixar de aparecer, mas os marcadores continuam renderizados sobre a área do mapa e os dados permanecem preservados no SQLite.
+
+A interface mostra separadamente o estado do banco local e o estado do mapa externo. Quando não há internet ou o provedor de tiles falha, o aplicativo informa que o mapa está indisponível e confirma que o CRUD local continua funcionando. Ao detectar a volta da conexão, somente a camada visual do mapa é recarregada; nenhum registro do SQLite é enviado, substituído ou sincronizado.
+
+Roteiro de validação:
+
+1. Abra o aplicativo e cadastre pelo menos dois lugares.
+2. Edite um deles e feche completamente o aplicativo.
+3. Reabra e confirme que os lugares e a edição continuam presentes.
+4. Ative o modo avião, cadastre ou edite outro lugar e reinicie novamente.
+5. Confirme o aviso `Sem internet • mapa externo indisponível` e que os marcadores locais continuam acessíveis.
+6. Exclua um lugar e confirme que ele não retorna após uma nova abertura.
+7. Desative o modo avião e confirme que o mapa externo é recarregado sem alterar os lugares locais.
+
+## Build da web
 
 ```bash
 npm run build:web
-npx serve frontend/dist
+npm run serve:web --workspace frontend
 ```
 
-O build exporta o aplicativo web do Expo e gera o arquivo `frontend/dist/sw.js` com o Workbox. Teste a instalação usando uma publicação segura com HTTPS ou por meio de `localhost`. O service worker armazena previamente os arquivos essenciais do aplicativo. Os lugares ficam no armazenamento local; os tiles ainda dependem do cache do provedor do mapa e a sincronização com a API exige conexão.
-
-Ao substituir uma versão de desenvolvimento instalada anteriormente, limpe uma vez os dados armazenados pelo site no navegador. O modo de desenvolvimento remove automaticamente os service workers de produção, evitando que um bundle antigo em cache impeça a exibição da interface.
-
-## API
-
-| Método | Endpoint | Resultado |
-| --- | --- | --- |
-| `GET` | `/api/health` | Estado do serviço |
-| `GET` | `/api/pins` | Todos os marcadores, do mais recente para o mais antigo |
-| `POST` | `/api/pins` | Cria um marcador validado |
-| `PUT` | `/api/pins/:id` | Atualiza um marcador validado |
-| `DELETE` | `/api/pins/:id` | Exclui um marcador |
-
-Exemplo de payload para criação:
-
-```json
-{
-  "name": "Praia de Saquarema",
-  "description": "Ótimo lugar para surfar ao nascer do sol",
-  "latitude": -22.9199,
-  "longitude": -42.5083,
-  "clientId": "identificador-gerado-pelo-aplicativo"
-}
-```
-
-O `clientId` torna a criação idempotente: se a resposta se perder durante uma sincronização, repetir a operação não cria um marcador duplicado.
-
-## Offline First e sincronização
-
-O aplicativo grava primeiro no `AsyncStorage`. Criar, editar e excluir funcionam sem acesso à API e sobrevivem ao fechamento do aplicativo. Cada mudança gera uma operação persistente na fila local. O indicador abaixo do logotipo informa se o app está online, offline, sincronizando ou com operações pendentes.
-
-Quando a rede retorna, a fila é enviada automaticamente na ordem em que foi criada e a lista mais recente é buscada no MongoDB. O indicador de conexão também funciona como botão para iniciar uma sincronização manual.
-
-### Roteiro de demonstração offline
-
-1. Com internet, abra o aplicativo e crie um lugar.
-2. Ative o modo avião e confirme o indicador `Offline`.
-3. Crie um segundo lugar e edite o primeiro. Os dois permanecem utilizáveis.
-4. Feche e reabra o aplicativo ainda offline para comprovar a persistência local.
-5. Desative o modo avião. Aguarde a mensagem de alterações sincronizadas.
-6. Reinicie o app ou pressione o indicador de conexão para comprovar que os dados chegaram à API.
+O build gera a PWA em `frontend/dist` e o service worker do Workbox. O comando de serviço aplica os cabeçalhos de isolamento exigidos pelo SQLite WebAssembly. Em outra hospedagem, configure `Cross-Origin-Opener-Policy: same-origin` e `Cross-Origin-Embedder-Policy: require-corp`. Para instalar a PWA, publique-a em HTTPS ou use `localhost`.
 
 ## Gerar o APK
 
-O perfil `preview` do EAS está configurado para produzir um APK instalável, em vez de um Android App Bundle:
+O perfil `preview` do EAS produz um APK instalável:
 
 ```bash
 npm run build:apk
 ```
 
-Na primeira execução, autentique-se em uma conta Expo e vincule o projeto quando solicitado. Ao final, o EAS fornece o link para baixar o `.apk`. Guarde uma cópia do arquivo junto aos artefatos da apresentação.
+Na primeira execução, autentique-se em uma conta Expo e vincule o projeto quando solicitado. O APK deve ser gerado novamente após alterações em módulos nativos, como a inclusão do SQLite.
 
-Um APK local de demonstração também está disponível em `artifacts/MapPin-1.0.0.apk`. Ele é assinado com uma chave de desenvolvimento e serve para instalação direta e apresentação; uma publicação em loja deve usar uma chave de produção protegida.
+O APK atual, já compilado com SQLite e validado em Android, está disponível em `artifacts/MapPin-1.0.0.apk`. Confira tamanho, assinatura e SHA-256 em `artifacts/README.md`.
+
+## Estrutura principal
+
+- `frontend/src/services/pinDatabase.js`: criação do banco, migração e CRUD SQLite.
+- `frontend/src/hooks/usePins.js`: estado e operações usadas pela interface.
+- `frontend/src/hooks/useExternalMapStatus.js`: disponibilidade da internet e recarga exclusiva do mapa externo.
+- `frontend/src/services/mapAvailability.js`: regras testáveis para modo avião, falha externa e reconexão.
+- `frontend/src/screens/MapScreen.js`: tela principal e feedback de gravação local.
+- `frontend/src/components/MapView.*.js`: mapas para web e plataformas nativas.
 
 ## Verificação
 
 ```bash
 npm test
+npx expo-doctor frontend
+npm run build:web
 ```
 
-Depois de instalar as dependências, verifique o bundle de produção da PWA com `npm run build:web`. No celular, permita o acesso à localização durante o uso, toque em uma área vazia do mapa, salve um marcador, edite-o pelo balão, teste o roteiro offline, alterne o tema e exclua o marcador.
+Os testes automatizados simulam o modo avião e a reconexão e usam um arquivo SQLite real para comprovar cadastro, edição e exclusão após fechar e reabrir o banco. No dispositivo, permita o acesso à localização, toque em uma área vazia do mapa, salve um marcador, edite-o pelo balão e teste o roteiro offline acima.

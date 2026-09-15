@@ -6,3 +6,6 @@ coverage/
 *.log
 .DS_Store
 
+# Pacote legado local; a entrega atual fica em artifacts/.
+artifacts.zip
+

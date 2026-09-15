@@ -10,7 +10,15 @@ const DEFAULT_REGION = {
   longitudeDelta: 120,
 };
 
-export default function PlatformMap({ location, pins, onMapPress, onDeletePin, onEditPin }) {
+export default function PlatformMap({
+  location,
+  pins,
+  onMapPress,
+  onDeletePin,
+  onEditPin,
+  onExternalMapStatusChange,
+  reloadToken,
+}) {
   const mapRef = useRef(null);
   const { theme, colors } = useTheme();
 
@@ -23,11 +31,17 @@ export default function PlatformMap({ location, pins, onMapPress, onDeletePin, o
     }
   }, [location]);
 
+  useEffect(() => {
+    onExternalMapStatusChange('loading');
+  }, [onExternalMapStatusChange, reloadToken]);
+
   return (
     <View style={styles.container}>
       <MapView
         initialRegion={location ? { ...location, latitudeDelta: 0.02, longitudeDelta: 0.02 } : DEFAULT_REGION}
+        key={`map-${reloadToken}`}
         mapType="standard"
+        onMapLoaded={() => onExternalMapStatusChange('available')}
         onPress={(event) => onMapPress(event.nativeEvent.coordinate)}
         ref={mapRef}
         rotateEnabled={false}
@@ -48,9 +62,6 @@ export default function PlatformMap({ location, pins, onMapPress, onDeletePin, o
               <View style={[styles.callout, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <Text style={[styles.calloutTitle, { color: colors.text }]}>{pin.name}</Text>
                 <Text style={[styles.calloutDescription, { color: colors.textMuted }]}>{pin.description}</Text>
-                {pin._syncStatus === 'pending' ? (
-                  <Text style={[styles.pendingText, { color: colors.warning }]}>Aguardando sincronização</Text>
-                ) : null}
                 <View style={styles.calloutActions}>
                   <CalloutSubview onPress={() => onEditPin(pin)}>
                     <Pressable accessibilityLabel={`Editar ${pin.name}`} accessibilityRole="button">
@@ -88,7 +99,6 @@ const styles = StyleSheet.create({
   },
   calloutTitle: { fontSize: 16, fontWeight: '700' },
   calloutDescription: { fontSize: 14, marginBottom: 11, marginTop: 5, maxWidth: 240 },
-  pendingText: { fontSize: 12, marginBottom: 9 },
   calloutActions: { flexDirection: 'row' },
   actionText: { fontSize: 13, fontWeight: '700', marginRight: 20, paddingVertical: 3 },
 });

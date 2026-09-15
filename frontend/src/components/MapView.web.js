@@ -1,6 +1,6 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import { useTheme } from '../context/ThemeContext';
 
@@ -42,11 +42,39 @@ function RecenterMap({ location }) {
   return null;
 }
 
-export default function PlatformMap({ location, pins, onMapPress, onDeletePin, onEditPin }) {
+export default function PlatformMap({
+  location,
+  pins,
+  onMapPress,
+  onDeletePin,
+  onEditPin,
+  onExternalMapStatusChange,
+  reloadToken,
+}) {
   const { theme, colors } = useTheme();
   const markerIcon = useMemo(() => pinIcon(colors.primary), [colors.primary]);
   const userIcon = useMemo(() => currentLocationIcon(), []);
+  const tileErrorRef = useRef(false);
+  const tileEventHandlers = useMemo(
+    () => ({
+      load: () =>
+        onExternalMapStatusChange(tileErrorRef.current ? 'unavailable' : 'available'),
+      loading: () => {
+        tileErrorRef.current = false;
+        onExternalMapStatusChange('loading');
+      },
+      tileerror: () => {
+        tileErrorRef.current = true;
+        onExternalMapStatusChange('unavailable');
+      },
+    }),
+    [onExternalMapStatusChange],
+  );
   const center = location ? [location.latitude, location.longitude] : DEFAULT_CENTER;
+
+  useEffect(() => {
+    onExternalMapStatusChange('loading');
+  }, [onExternalMapStatusChange, reloadToken]);
 
   return (
     <div style={{ height: '100%', position: 'relative', width: '100%' }}>
@@ -60,6 +88,9 @@ export default function PlatformMap({ location, pins, onMapPress, onDeletePin, o
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           className={theme === 'dark' ? 'mappin-dark-tiles' : ''}
+          crossOrigin
+          eventHandlers={tileEventHandlers}
+          key={`tiles-${reloadToken}`}
           maxZoom={19}
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
@@ -78,11 +109,6 @@ export default function PlatformMap({ location, pins, onMapPress, onDeletePin, o
               <div style={{ minWidth: 170 }}>
                 <strong style={{ color: '#12213a', display: 'block', fontSize: 15 }}>{pin.name}</strong>
                 <p style={{ color: '#40516a', margin: '6px 0 10px', whiteSpace: 'pre-wrap' }}>{pin.description}</p>
-                {pin._syncStatus === 'pending' ? (
-                  <small style={{ color: '#9a6700', display: 'block', marginBottom: 9 }}>
-                    Aguardando sincronização
-                  </small>
-                ) : null}
                 <div style={{ display: 'flex', gap: 14 }}>
                   <button
                     aria-label={`Editar ${pin.name}`}

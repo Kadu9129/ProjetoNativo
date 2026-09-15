@@ -14,7 +14,8 @@ import PlatformMap from '../components/MapView';
 import PinFormModal from '../components/PinFormModal';
 import ThemeToggleButton from '../components/ThemeToggleButton';
 import { useTheme } from '../context/ThemeContext';
-import useOfflinePins from '../hooks/useOfflinePins';
+import useExternalMapStatus from '../hooks/useExternalMapStatus';
+import usePins from '../hooks/usePins';
 
 export default function MapScreen() {
   const { colors } = useTheme();
@@ -23,18 +24,23 @@ export default function MapScreen() {
   const [pendingCoordinate, setPendingCoordinate] = useState(null);
   const [editingPin, setEditingPin] = useState(null);
   const {
+    label: mapStatusLabel,
+    mapState,
+    reloadToken: mapReloadToken,
+    reportMapState,
+    unavailable: mapUnavailable,
+  } = useExternalMapStatus();
+  const {
     pins,
-    pendingCount,
     ready,
-    isOnline,
-    syncing,
-    error: syncError,
+    saving,
+    error: databaseError,
     notice,
     createPin,
     updatePin,
     deletePin,
-    synchronize,
-  } = useOfflinePins();
+    retry,
+  } = usePins();
 
   useEffect(() => {
     let active = true;
@@ -91,7 +97,7 @@ export default function MapScreen() {
   const requestDeletePin = useCallback(
     (pin) => {
       const performDelete = () => deletePin(pin._id).catch(() => {});
-      const message = `O lugar “${pin.name}” será removido deste dispositivo e do servidor.`;
+      const message = `O lugar “${pin.name}” será removido deste dispositivo.`;
 
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
         if (window.confirm(message)) performDelete();
@@ -106,14 +112,9 @@ export default function MapScreen() {
     [deletePin],
   );
 
-  const connectionLabel = syncing
-    ? 'Sincronizando…'
-    : isOnline === false
-      ? `Offline${pendingCount ? ` • ${pendingCount} pendente(s)` : ''}`
-      : pendingCount
-        ? `Online • ${pendingCount} pendente(s)`
-        : 'Online • sincronizado';
-  const connectionColor = isOnline === false ? colors.warning : colors.info;
+  const storageLabel = saving
+    ? 'Salvando no banco local…'
+    : `Banco local • ${pins.length} ${pins.length === 1 ? 'lugar' : 'lugares'}`;
   const modalCoordinate = editingPin
     ? { latitude: editingPin.latitude, longitude: editingPin.longitude }
     : pendingCoordinate;
@@ -123,10 +124,12 @@ export default function MapScreen() {
       <View style={styles.mapContainer}>
         <PlatformMap
           location={location}
+          onExternalMapStatusChange={reportMapState}
           onDeletePin={requestDeletePin}
           onEditPin={setEditingPin}
           onMapPress={handleMapPress}
           pins={pins}
+          reloadToken={mapReloadToken}
         />
 
         <View pointerEvents="box-none" style={styles.topBar}>
@@ -142,27 +145,47 @@ export default function MapScreen() {
           <ThemeToggleButton />
         </View>
 
-        <Pressable
-          accessibilityLabel="Sincronizar lugares"
-          accessibilityRole="button"
-          disabled={syncing}
-          onPress={synchronize}
-          style={({ pressed }) => [
-            styles.syncBadge,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.border,
-              opacity: pressed || syncing ? 0.72 : 1,
-            },
+        <View
+          accessibilityLabel={storageLabel}
+          style={[
+            styles.storageBadge,
+            { backgroundColor: colors.surface, borderColor: colors.border },
           ]}
         >
-          {syncing ? (
-            <ActivityIndicator color={connectionColor} size="small" />
+          {saving ? (
+            <ActivityIndicator color={colors.info} size="small" />
           ) : (
-            <View style={[styles.statusDot, { backgroundColor: connectionColor }]} />
+            <View style={[styles.statusDot, { backgroundColor: colors.info }]} />
           )}
-          <Text style={[styles.syncText, { color: colors.text }]}>{connectionLabel}</Text>
-        </Pressable>
+          <Text style={[styles.storageText, { color: colors.text }]}>{storageLabel}</Text>
+        </View>
+
+        <View
+          accessibilityLabel={mapStatusLabel}
+          style={[
+            styles.mapStatusBadge,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
+          {mapState === 'loading' && !mapUnavailable ? (
+            <ActivityIndicator color={colors.info} size="small" />
+          ) : (
+            <View
+              style={[
+                styles.statusDot,
+                { backgroundColor: mapUnavailable ? colors.warning : colors.info },
+              ]}
+            />
+          )}
+          <View style={styles.mapStatusContent}>
+            <Text style={[styles.mapStatusText, { color: colors.text }]}>{mapStatusLabel}</Text>
+            {mapUnavailable ? (
+              <Text style={[styles.mapStatusHint, { color: colors.textMuted }]}>
+                Os marcadores e o CRUD continuam funcionando no SQLite local.
+              </Text>
+            ) : null}
+          </View>
+        </View>
 
         {locationMessage ? (
           <View
@@ -176,16 +199,16 @@ export default function MapScreen() {
           </View>
         ) : null}
 
-        {syncError ? (
+        {databaseError ? (
           <View
             style={[
               styles.message,
-              styles.apiMessage,
+              styles.databaseMessage,
               { backgroundColor: colors.surface, borderColor: colors.border },
             ]}
           >
-            <Text style={[styles.messageText, { color: colors.danger }]}>{syncError}</Text>
-            <Pressable accessibilityRole="button" onPress={synchronize}>
+            <Text style={[styles.messageText, { color: colors.danger }]}>{databaseError}</Text>
+            <Pressable accessibilityRole="button" onPress={retry}>
               <Text style={[styles.retry, { color: colors.primary }]}>Tentar novamente</Text>
             </Pressable>
           </View>
@@ -263,7 +286,7 @@ const styles = StyleSheet.create({
   },
   brandTitle: { fontSize: 17, fontWeight: '800', lineHeight: 19 },
   brandSubtitle: { fontSize: 11, marginTop: 2 },
-  syncBadge: {
+  storageBadge: {
     alignItems: 'center',
     borderRadius: 18,
     borderWidth: 1,
@@ -277,7 +300,26 @@ const styles = StyleSheet.create({
     zIndex: 1100,
   },
   statusDot: { borderRadius: 5, height: 10, width: 10 },
-  syncText: { fontSize: 12, fontWeight: '700', marginLeft: 7 },
+  storageText: { fontSize: 12, fontWeight: '700', marginLeft: 7 },
+  mapStatusBadge: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    elevation: 3,
+    flexDirection: 'row',
+    left: 14,
+    maxWidth: 360,
+    minHeight: 36,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    position: 'absolute',
+    right: 14,
+    top: 126,
+    zIndex: 1100,
+  },
+  mapStatusContent: { flex: 1, marginLeft: 7 },
+  mapStatusText: { fontSize: 12, fontWeight: '700' },
+  mapStatusHint: { fontSize: 11, lineHeight: 15, marginTop: 2 },
   message: {
     borderRadius: 12,
     borderWidth: 1,
@@ -290,7 +332,7 @@ const styles = StyleSheet.create({
     zIndex: 1100,
   },
   locationMessage: { bottom: 18 },
-  apiMessage: { bottom: 74, flexDirection: 'row', justifyContent: 'space-between' },
+  databaseMessage: { bottom: 74, flexDirection: 'row', justifyContent: 'space-between' },
   noticeMessage: { bottom: 130 },
   messageText: { flex: 1, fontSize: 13 },
   retry: { fontSize: 13, fontWeight: '700', marginLeft: 14 },
