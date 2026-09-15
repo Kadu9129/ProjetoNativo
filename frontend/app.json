@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "MapPin",
+    "slug": "mappin-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#07122b"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mappin.app"
+    },
+    "android": {
+      "package": "com.mappin.app",
+      "versionCode": 1,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/favicon.png",
+      "name": "MapPin",
+      "shortName": "MapPin",
+      "themeColor": "#07122b",
+      "backgroundColor": "#07122b"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow MapPin to use your location to center the map."
+        }
+      ]
+    ]
+  }
+}
+
