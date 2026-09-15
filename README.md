@@ -19,7 +19,9 @@ npm install
 npm run dev:frontend
 ```
 
-No terminal do Expo, pressione `w`, `a` ou `i` para abrir o aplicativo na web, Android ou iOS. Nenhum arquivo `.env`, banco externo ou serviço de backend é necessário.
+No terminal do Expo, pressione `w`, `a` ou `i` para abrir o aplicativo na web, Android ou iOS. Nenhum banco externo ou serviço de backend é necessário.
+
+No Android, uma chave do Google Maps é opcional. Sem ela, o aplicativo abre uma grade local de coordenadas, mantém os marcadores visíveis e permite todo o CRUD sem internet. Para habilitar o mapa externo, copie `frontend/.env.example` para `frontend/.env`, preencha `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` e gere novamente o projeto nativo/APK.
 
 O projeto utiliza Expo SDK 54. Caso o Expo Go tenha armazenado um bundle incompatível, feche-o, execute `npx expo start --clear` e leia novamente o QR code.
 

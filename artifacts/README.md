@@ -4,7 +4,7 @@
 
 - Arquivo: `MapPin-1.0.0.apk`
 - Gerado em: 15/09/2026
-- Tamanho: 74.204.760 bytes (70,77 MiB)
+- Tamanho: 74.212.460 bytes (70,77 MiB)
 - Pacote Android: `com.mappin.app`
 - Nome do aplicativo: `MapPin`
 - Version code: `1`
@@ -12,7 +12,7 @@
 - Target SDK: `36`
 - Arquiteturas: `arm64-v8a`, `armeabi-v7a`, `x86` e `x86_64`
 - Assinatura: APK Signature Scheme v2, chave de desenvolvimento
-- SHA-256: `AFFE46AB206875BA52EA0ECFC0E919255B2C1CEE1E86B05250934250A3F63BF1`
+- SHA-256: `1548D4615878B25E0E35C7A5767614DD3DA177837E803F7741D29CED2A4FC9AB`
 
 Este APK contém a versão local e offline-first do MapPin, com o CRUD de lugares persistido em SQLite e sem dependência de backend. Ele foi validado com `apksigner`, instalado com sucesso e iniciado em um emulador Android.
 
