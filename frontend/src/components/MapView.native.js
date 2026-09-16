@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import MapView, { Callout, CalloutSubview, Marker } from 'react-native-maps';
+import MapView, { Marker } from 'react-native-maps';
 import { useTheme } from '../context/ThemeContext';
 
 const DEFAULT_REGION = {
@@ -98,7 +98,6 @@ export default function PlatformMap({
   location,
   pins,
   onMapPress,
-  onDeletePin,
   onEditPin,
   onExternalMapStatusChange,
   reloadToken,
@@ -153,27 +152,11 @@ export default function PlatformMap({
           <Marker
             coordinate={{ latitude: pin.latitude, longitude: pin.longitude }}
             key={pin._id}
+            onPress={() => onEditPin(pin)}
             pinColor={colors.primary}
-          >
-            <Callout tooltip>
-              <View style={[styles.callout, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <Text style={[styles.calloutTitle, { color: colors.text }]}>{pin.name}</Text>
-                <Text style={[styles.calloutDescription, { color: colors.textMuted }]}>{pin.description}</Text>
-                <View style={styles.calloutActions}>
-                  <CalloutSubview onPress={() => onEditPin(pin)}>
-                    <Pressable accessibilityLabel={`Editar ${pin.name}`} accessibilityRole="button">
-                      <Text style={[styles.actionText, { color: colors.info }]}>Editar</Text>
-                    </Pressable>
-                  </CalloutSubview>
-                  <CalloutSubview onPress={() => onDeletePin(pin)}>
-                    <Pressable accessibilityLabel={`Excluir ${pin.name}`} accessibilityRole="button">
-                      <Text style={[styles.actionText, { color: colors.danger }]}>Excluir</Text>
-                    </Pressable>
-                  </CalloutSubview>
-                </View>
-              </View>
-            </Callout>
-          </Marker>
+            stopPropagation
+            title={pin.name}
+          />
         ))}
       </MapView>
       {theme === 'dark' ? <View pointerEvents="none" style={styles.darkOverlay} /> : null}
@@ -211,14 +194,4 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(3, 13, 35, 0.22)',
   },
-  callout: {
-    borderRadius: 12,
-    borderWidth: 1,
-    minWidth: 190,
-    padding: 13,
-  },
-  calloutTitle: { fontSize: 16, fontWeight: '700' },
-  calloutDescription: { fontSize: 14, marginBottom: 11, marginTop: 5, maxWidth: 240 },
-  calloutActions: { flexDirection: 'row' },
-  actionText: { fontSize: 13, fontWeight: '700', marginRight: 20, paddingVertical: 3 },
 });
