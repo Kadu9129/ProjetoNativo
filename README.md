@@ -2,7 +2,7 @@
 
 Aplicativo Expo/React Native para web, iOS e Android. O usuário pode centralizar o mapa em sua localização e cadastrar, editar ou excluir lugares com nome e descrição.
 
-Todos os lugares são armazenados exclusivamente no dispositivo em um banco SQLite. O aplicativo não possui backend, não usa MongoDB e não envia os dados cadastrados para um servidor. Somente o mapa da plataforma e os tiles do OpenStreetMap na versão web dependem de serviços externos e conexão com a internet.
+Todos os lugares são armazenados exclusivamente no dispositivo em um banco SQLite. O aplicativo não possui backend, não usa MongoDB e não envia os dados cadastrados para um servidor. Somente os tiles do OpenStreetMap dependem de um serviço externo e conexão com a internet.
 
 ## Requisitos
 
@@ -21,7 +21,7 @@ npm run dev:frontend
 
 No terminal do Expo, pressione `w`, `a` ou `i` para abrir o aplicativo na web, Android ou iOS. Nenhum banco externo ou serviço de backend é necessário.
 
-No Android, uma chave do Google Maps é opcional. Sem ela, o aplicativo abre uma grade local de coordenadas, mantém os marcadores visíveis e permite todo o CRUD sem internet. Para habilitar o mapa externo, copie `frontend/.env.example` para `frontend/.env`, preencha `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` e gere novamente o projeto nativo/APK.
+O mapa externo usa OpenStreetMap e não precisa de chave de API, conta ou faturamento. Sem internet, o aplicativo abre uma grade local de coordenadas, mantém os marcadores visíveis e permite todo o CRUD. Os tiles públicos são usados somente para visualização interativa; o aplicativo não faz download em massa nem tenta armazenar áreas completas para uso offline.
 
 O projeto utiliza Expo SDK 54. Caso o Expo Go tenha armazenado um bundle incompatível, feche-o, execute `npx expo start --clear` e leia novamente o QR code.
 
