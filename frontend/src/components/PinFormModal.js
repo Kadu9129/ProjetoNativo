@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -11,7 +12,7 @@ import {
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 
-export default function PinFormModal({ visible, coordinate, pin, onCancel, onSubmit }) {
+export default function PinFormModal({ visible, coordinate, pin, onCancel, onDelete, onSubmit }) {
   const { colors } = useTheme();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -62,14 +63,27 @@ export default function PinFormModal({ visible, coordinate, pin, onCancel, onSub
         style={styles.backdrop}
       >
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.title, { color: colors.text }]}>
-            {isEditing ? 'Editar lugar' : 'Novo lugar'}
-          </Text>
-          <Text style={[styles.coordinates, { color: colors.textMuted }]}>
-            {coordinate ? `${coordinate.latitude.toFixed(5)}, ${coordinate.longitude.toFixed(5)}` : ''}
-          </Text>
+          <View style={styles.header}>
+            <View style={[styles.headerIcon, { backgroundColor: colors.primary }]}>
+              <Text style={[styles.headerIconText, { color: colors.onPrimary }]}>{isEditing ? '✎' : '+'}</Text>
+            </View>
+            <View style={styles.headerCopy}>
+              <Text style={[styles.eyebrow, { color: colors.primary }]}>SALVO NESTE DISPOSITIVO</Text>
+              <Text style={[styles.title, { color: colors.text }]}>{isEditing ? 'Editar lugar' : 'Novo lugar'}</Text>
+            </View>
+          </View>
 
-          <Text style={[styles.label, { color: colors.text }]}>Nome</Text>
+          <View style={[styles.coordinateChip, { backgroundColor: colors.surfaceMuted }]}>
+            <View style={[styles.coordinateDot, { backgroundColor: colors.info }]} />
+            <Text style={[styles.coordinates, { color: colors.textMuted }]}>
+              {coordinate ? `${coordinate.latitude.toFixed(5)}, ${coordinate.longitude.toFixed(5)}` : ''}
+            </Text>
+          </View>
+
+          <View style={styles.labelRow}>
+            <Text style={[styles.label, { color: colors.text }]}>Nome</Text>
+            <Text style={[styles.counter, { color: colors.textMuted }]}>{name.length}/100</Text>
+          </View>
           <TextInput
             accessibilityLabel="Nome do lugar"
             autoFocus
@@ -86,7 +100,10 @@ export default function PinFormModal({ visible, coordinate, pin, onCancel, onSub
             value={name}
           />
 
-          <Text style={[styles.label, { color: colors.text }]}>Descrição</Text>
+          <View style={styles.labelRow}>
+            <Text style={[styles.label, { color: colors.text }]}>Descrição</Text>
+            <Text style={[styles.counter, { color: colors.textMuted }]}>{description.length}/500</Text>
+          </View>
           <TextInput
             accessibilityLabel="Descrição do lugar"
             editable={!saving}
@@ -104,9 +121,24 @@ export default function PinFormModal({ visible, coordinate, pin, onCancel, onSub
             value={description}
           />
 
-          {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
+          {error ? (
+            <View style={[styles.errorBox, { backgroundColor: colors.surfaceMuted, borderColor: colors.danger }]}>
+              <Text style={[styles.error, { color: colors.danger }]}>{error}</Text>
+            </View>
+          ) : null}
 
           <View style={styles.actions}>
+            {isEditing ? (
+              <Pressable
+                accessibilityRole="button"
+                disabled={saving}
+                onPress={() => onDelete(pin)}
+                style={({ pressed }) => [styles.deleteAction, { opacity: pressed || saving ? 0.6 : 1 }]}
+              >
+                <Text style={[styles.deleteText, { color: colors.danger }]}>Excluir</Text>
+              </Pressable>
+            ) : null}
+            <View style={styles.primaryActions}>
             <Pressable
               accessibilityRole="button"
               disabled={saving}
@@ -125,10 +157,12 @@ export default function PinFormModal({ visible, coordinate, pin, onCancel, onSub
                 { backgroundColor: pressed ? colors.primaryPressed : colors.primary, opacity: saving ? 0.7 : 1 },
               ]}
             >
-              <Text style={[styles.saveText, { color: colors.onPrimary }]}>
-                {saving ? 'Salvando…' : isEditing ? 'Salvar alterações' : 'Salvar'}
+              {saving ? <ActivityIndicator color={colors.onPrimary} size="small" /> : null}
+              <Text style={[styles.saveText, { color: colors.onPrimary, marginLeft: saving ? 8 : 0 }]}>
+                {saving ? 'Salvando…' : isEditing ? 'Salvar alterações' : 'Salvar lugar'}
               </Text>
             </Pressable>
+            </View>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -145,21 +179,38 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   card: {
-    borderRadius: 20,
+    borderRadius: 24,
     borderWidth: 1,
     maxWidth: 480,
-    padding: 22,
+    padding: 24,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
     width: '100%',
   },
-  title: { fontSize: 24, fontWeight: '700' },
-  coordinates: { fontSize: 12, marginBottom: 17, marginTop: 4 },
-  label: { fontSize: 14, fontWeight: '600', marginBottom: 6, marginTop: 10 },
-  input: { borderRadius: 10, borderWidth: 1, fontSize: 16, minHeight: 46, paddingHorizontal: 13, paddingVertical: 10 },
-  description: { minHeight: 105 },
-  error: { fontSize: 13, marginTop: 10 },
-  actions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 20 },
-  action: { alignItems: 'center', borderRadius: 10, justifyContent: 'center', minHeight: 44, minWidth: 90, paddingHorizontal: 16 },
-  save: { marginLeft: 8 },
+  header: { alignItems: 'center', flexDirection: 'row' },
+  headerIcon: { alignItems: 'center', borderRadius: 15, height: 46, justifyContent: 'center', width: 46 },
+  headerIconText: { fontSize: 25, fontWeight: '600', lineHeight: 28 },
+  headerCopy: { flex: 1, marginLeft: 12 },
+  eyebrow: { fontSize: 9, fontWeight: '800', letterSpacing: 0.9 },
+  title: { fontSize: 23, fontWeight: '800', letterSpacing: -0.4, marginTop: 2 },
+  coordinateChip: { alignItems: 'center', alignSelf: 'flex-start', borderRadius: 12, flexDirection: 'row', marginBottom: 17, marginTop: 15, paddingHorizontal: 10, paddingVertical: 7 },
+  coordinateDot: { borderRadius: 4, height: 8, width: 8 },
+  coordinates: { fontSize: 11, fontWeight: '600', marginLeft: 7 },
+  labelRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 7, marginTop: 10 },
+  label: { fontSize: 13, fontWeight: '700' },
+  counter: { fontSize: 10, fontWeight: '600' },
+  input: { borderRadius: 12, borderWidth: 1, fontSize: 15, minHeight: 48, paddingHorizontal: 14, paddingVertical: 11 },
+  description: { minHeight: 112 },
+  errorBox: { borderLeftWidth: 3, borderRadius: 9, marginTop: 12, paddingHorizontal: 11, paddingVertical: 9 },
+  error: { fontSize: 12, lineHeight: 17 },
+  actions: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: 22 },
+  primaryActions: { flexDirection: 'row', marginLeft: 'auto' },
+  action: { alignItems: 'center', borderRadius: 12, flexDirection: 'row', justifyContent: 'center', minHeight: 46, minWidth: 98, paddingHorizontal: 17 },
+  save: { marginLeft: 9, minWidth: 126 },
+  deleteAction: { justifyContent: 'center', minHeight: 44, paddingHorizontal: 6 },
+  deleteText: { fontSize: 14, fontWeight: '700' },
   cancelText: { fontSize: 15, fontWeight: '600' },
   saveText: { fontSize: 15, fontWeight: '700' },
 });
