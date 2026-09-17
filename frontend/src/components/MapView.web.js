@@ -42,6 +42,40 @@ function RecenterMap({ location }) {
   return null;
 }
 
+function ViewportController({ command }) {
+  const map = useMap();
+  const handledCommandRef = useRef(null);
+
+  useEffect(() => {
+    if (!command || handledCommandRef.current === command.id) return;
+    handledCommandRef.current = command.id;
+
+    if (command.type === 'focus' && command.coordinate) {
+      map.flyTo(
+        [command.coordinate.latitude, command.coordinate.longitude],
+        command.zoom ?? 16,
+        { duration: 0.45 },
+      );
+      return;
+    }
+
+    if (command.type === 'fit' && command.coordinates?.length) {
+      if (command.coordinates.length === 1) {
+        const [coordinate] = command.coordinates;
+        map.flyTo([coordinate.latitude, coordinate.longitude], 16, { duration: 0.45 });
+        return;
+      }
+
+      map.fitBounds(
+        command.coordinates.map((coordinate) => [coordinate.latitude, coordinate.longitude]),
+        { animate: true, duration: 0.45, maxZoom: 16, padding: [56, 56] },
+      );
+    }
+  }, [command, map]);
+
+  return null;
+}
+
 export default function PlatformMap({
   location,
   pins,
@@ -50,6 +84,7 @@ export default function PlatformMap({
   onEditPin,
   onExternalMapStatusChange,
   reloadToken,
+  viewportCommand,
 }) {
   const { theme, colors } = useTheme();
   const markerIcon = useMemo(() => pinIcon(colors.primary), [colors.primary]);
@@ -79,10 +114,14 @@ export default function PlatformMap({
   return (
     <div style={{ height: '100%', position: 'relative', width: '100%' }}>
       <MapContainer
+        boxZoom
         center={center}
+        doubleClickZoom
+        keyboard
         preferCanvas
         scrollWheelZoom
         style={{ background: colors.background, height: '100%', width: '100%' }}
+        touchZoom
         zoom={location ? 14 : 2}
       >
         <TileLayer
@@ -96,6 +135,7 @@ export default function PlatformMap({
         />
         <MapClickHandler onMapPress={onMapPress} />
         <RecenterMap location={location} />
+        <ViewportController command={viewportCommand} />
 
         {location ? (
           <Marker icon={userIcon} position={[location.latitude, location.longitude]} zIndexOffset={1000}>
@@ -139,7 +179,7 @@ export default function PlatformMap({
         ))}
       </MapContainer>
       <style>
-        {`.leaflet-top.leaflet-left { top: 178px; }
+        {`.leaflet-top.leaflet-left { top: 258px; }
           ${theme === 'dark' ? '.mappin-dark-tiles { filter: brightness(.72) contrast(1.18) saturate(.65); }' : ''}`}
       </style>
     </div>

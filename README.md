@@ -1,6 +1,14 @@
 # MapPin App
 
-Aplicativo Expo/React Native para web, iOS e Android. O usuário pode centralizar o mapa em sua localização e cadastrar, editar ou excluir lugares com nome e descrição.
+Mapa pessoal e privado para web, iOS e Android, desenvolvido com Expo/React Native. O usuário pode guardar lugares importantes, encontrá-los rapidamente e explorar o mapa sem criar conta.
+
+Principais recursos:
+
+- cadastro, edição e exclusão de lugares com nome, descrição e coordenadas;
+- zoom por pinça no celular, zoom pela roda do mouse e controles `+`/`−`;
+- busca local por nome ou descrição, inclusive sem internet;
+- atalhos para voltar à localização atual e enquadrar todos os lugares salvos;
+- tema claro/escuro e funcionamento do cadastro totalmente offline.
 
 Todos os lugares são armazenados exclusivamente no dispositivo em um banco SQLite. O aplicativo não possui backend, não usa MongoDB e não envia os dados cadastrados para um servidor. Somente os tiles do OpenStreetMap dependem de um serviço externo e conexão com a internet.
 
@@ -76,7 +84,7 @@ npm run build:apk
 
 Na primeira execução, autentique-se em uma conta Expo e vincule o projeto quando solicitado. O APK deve ser gerado novamente após alterações em módulos nativos, como a inclusão do SQLite.
 
-O APK atual, já compilado com SQLite e validado em Android, está disponível em `artifacts/MapPin-1.0.0.apk`. Confira tamanho, assinatura e SHA-256 em `artifacts/README.md`.
+O APK atual, já compilado com SQLite e validado em Android, está disponível em `artifacts/MapPin-1.0.0-atualizado.apk`. Confira tamanho, assinatura e SHA-256 em `artifacts/README.md`.
 
 ## Estrutura principal
 
@@ -95,4 +103,4 @@ npx expo-doctor frontend
 npm run build:web
 ```
 
-Os testes automatizados simulam o modo avião e a reconexão e usam um arquivo SQLite real para comprovar cadastro, edição e exclusão após fechar e reabrir o banco. No dispositivo, permita o acesso à localização, toque em uma área vazia do mapa, salve um marcador, edite-o pelo balão e teste o roteiro offline acima.
+Os testes automatizados simulam o modo avião e a reconexão e usam um arquivo SQLite real para comprovar cadastro, edição e exclusão após fechar e reabrir o banco. No dispositivo, permita o acesso à localização, toque em uma área vazia do mapa, salve um marcador, edite-o pelo balão e teste o roteiro offline acima. Confira também o zoom abrindo e fechando dois dedos sobre pontos diferentes do mapa, a busca por nome/descrição, o botão de localização e o enquadramento de todos os lugares.

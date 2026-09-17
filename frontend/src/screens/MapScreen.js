@@ -1,12 +1,14 @@
 import * as Location from 'expo-location';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   Platform,
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,8 +23,11 @@ export default function MapScreen() {
   const { colors } = useTheme();
   const [location, setLocation] = useState(null);
   const [locationMessage, setLocationMessage] = useState('Buscando sua localização…');
+  const [locating, setLocating] = useState(true);
   const [pendingCoordinate, setPendingCoordinate] = useState(null);
   const [editingPin, setEditingPin] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [viewportCommand, setViewportCommand] = useState(null);
   const {
     label: mapStatusLabel,
     mapState,
@@ -42,39 +47,45 @@ export default function MapScreen() {
     retry,
   } = usePins();
 
-  useEffect(() => {
-    let active = true;
-
-    async function loadLocation() {
-      try {
-        const permission = await Location.requestForegroundPermissionsAsync();
-        if (!active) return;
-        if (permission.status !== 'granted') {
-          setLocationMessage('Localização não permitida. Você ainda pode explorar o mapa.');
-          return;
-        }
-
-        const position = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        if (!active) return;
-        setLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
-        setLocationMessage('');
-      } catch (_error) {
-        if (active) {
-          setLocationMessage('Localização indisponível. Você ainda pode explorar o mapa.');
-        }
+  const requestCurrentLocation = useCallback(async ({ focus = false } = {}) => {
+    setLocating(true);
+    setLocationMessage('Buscando sua localização…');
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== 'granted') {
+        setLocationMessage('Localização não permitida. Você ainda pode explorar o mapa.');
+        return null;
       }
-    }
 
-    loadLocation();
-    return () => {
-      active = false;
-    };
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const nextLocation = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      };
+      setLocation(nextLocation);
+      setLocationMessage('');
+      if (focus) {
+        setViewportCommand({
+          coordinate: nextLocation,
+          id: Date.now(),
+          type: 'focus',
+          zoom: 16,
+        });
+      }
+      return nextLocation;
+    } catch (_error) {
+      setLocationMessage('Localização indisponível. Você ainda pode explorar o mapa.');
+      return null;
+    } finally {
+      setLocating(false);
+    }
   }, []);
+
+  useEffect(() => {
+    requestCurrentLocation();
+  }, [requestCurrentLocation]);
 
   const handleMapPress = useCallback((coordinate) => {
     setEditingPin(null);
@@ -93,6 +104,44 @@ export default function MapScreen() {
     },
     [createPin, editingPin, updatePin],
   );
+
+  const normalizedSearch = useMemo(
+    () => searchQuery.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(),
+    [searchQuery],
+  );
+  const searchResults = useMemo(() => {
+    if (!normalizedSearch) return [];
+    return pins
+      .filter((pin) => {
+        const searchableText = `${pin.name} ${pin.description}`
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase();
+        return searchableText.includes(normalizedSearch);
+      })
+      .slice(0, 5);
+  }, [normalizedSearch, pins]);
+
+  const focusPin = useCallback((pin) => {
+    Keyboard.dismiss();
+    setSearchQuery('');
+    setViewportCommand({
+      coordinate: { latitude: pin.latitude, longitude: pin.longitude },
+      id: Date.now(),
+      type: 'focus',
+      zoom: 16,
+    });
+  }, []);
+
+  const fitSavedPlaces = useCallback(() => {
+    const coordinates = pins.map((pin) => ({
+      latitude: pin.latitude,
+      longitude: pin.longitude,
+    }));
+    if (location) coordinates.push(location);
+    if (!coordinates.length) return;
+    setViewportCommand({ coordinates, id: Date.now(), type: 'fit' });
+  }, [location, pins]);
 
   const requestDeletePin = useCallback(
     (pin) => {
@@ -135,6 +184,7 @@ export default function MapScreen() {
           onMapPress={handleMapPress}
           pins={pins}
           reloadToken={mapReloadToken}
+          viewportCommand={viewportCommand}
         />
 
         <View pointerEvents="box-none" style={styles.topBar}>
@@ -148,6 +198,95 @@ export default function MapScreen() {
             </View>
           </View>
           <ThemeToggleButton />
+        </View>
+
+        <View
+          style={[
+            styles.searchPanel,
+            styles.floatingShadow,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
+          <View style={styles.searchRow}>
+            <Text accessibilityElementsHidden style={[styles.searchIcon, { color: colors.textMuted }]}>⌕</Text>
+            <TextInput
+              accessibilityLabel="Buscar lugares salvos"
+              autoCapitalize="none"
+              autoCorrect={false}
+              onChangeText={setSearchQuery}
+              placeholder="Buscar nos meus lugares"
+              placeholderTextColor={colors.textMuted}
+              returnKeyType="search"
+              selectionColor={colors.primary}
+              style={[styles.searchInput, { color: colors.text }]}
+              value={searchQuery}
+            />
+            {searchQuery ? (
+              <Pressable
+                accessibilityLabel="Limpar busca"
+                accessibilityRole="button"
+                hitSlop={8}
+                onPress={() => setSearchQuery('')}
+                style={({ pressed }) => [styles.clearSearch, { backgroundColor: pressed ? colors.border : colors.surfaceMuted }]}
+              >
+                <Text style={[styles.clearSearchText, { color: colors.textMuted }]}>×</Text>
+              </Pressable>
+            ) : null}
+          </View>
+
+          {normalizedSearch ? (
+            <View style={[styles.searchResults, { borderTopColor: colors.border }]}>
+              {searchResults.length ? (
+                searchResults.map((pin) => (
+                  <Pressable
+                    accessibilityHint="Centraliza este lugar no mapa"
+                    accessibilityRole="button"
+                    key={pin._id}
+                    onPress={() => focusPin(pin)}
+                    style={({ pressed }) => [
+                      styles.searchResult,
+                      { backgroundColor: pressed ? colors.surfaceMuted : colors.surface },
+                    ]}
+                  >
+                    <View style={[styles.resultPin, { backgroundColor: colors.primary }]} />
+                    <View style={styles.resultCopy}>
+                      <Text numberOfLines={1} style={[styles.resultName, { color: colors.text }]}>{pin.name}</Text>
+                      <Text numberOfLines={1} style={[styles.resultDescription, { color: colors.textMuted }]}>{pin.description}</Text>
+                    </View>
+                    <Text style={[styles.resultAction, { color: colors.primary }]}>Ver</Text>
+                  </Pressable>
+                ))
+              ) : (
+                <Text style={[styles.emptySearch, { color: colors.textMuted }]}>Nenhum lugar encontrado neste dispositivo.</Text>
+              )}
+            </View>
+          ) : null}
+        </View>
+
+        <View style={[styles.mapActions, styles.floatingShadow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Pressable
+            accessibilityLabel="Ir para minha localização"
+            accessibilityRole="button"
+            disabled={locating}
+            onPress={() => requestCurrentLocation({ focus: true })}
+            style={({ pressed }) => [styles.mapAction, { backgroundColor: pressed ? colors.surfaceMuted : colors.surface }]}
+          >
+            {locating ? (
+              <ActivityIndicator color={colors.info} size="small" />
+            ) : (
+              <Text style={[styles.mapActionIcon, { color: colors.info }]}>⌖</Text>
+            )}
+          </Pressable>
+          <View style={[styles.mapActionDivider, { backgroundColor: colors.border }]} />
+          <Pressable
+            accessibilityLabel="Enquadrar todos os lugares"
+            accessibilityRole="button"
+            disabled={!pins.length && !location}
+            onPress={fitSavedPlaces}
+            style={({ pressed }) => [styles.mapAction, { backgroundColor: pressed ? colors.surfaceMuted : colors.surface }]}
+          >
+            <Text style={[styles.fitActionText, { color: pins.length || location ? colors.text : colors.textMuted }]}>Todos</Text>
+          </Pressable>
         </View>
 
         <View
@@ -231,8 +370,8 @@ export default function MapScreen() {
               <Text style={[styles.actionHintPlus, { color: colors.onPrimary }]}>+</Text>
             </View>
             <View style={styles.actionHintCopy}>
-              <Text style={[styles.actionHintTitle, { color: colors.text }]}>Adicionar um lugar</Text>
-              <Text style={[styles.actionHintSubtitle, { color: colors.textMuted }]}>Toque em qualquer ponto do mapa</Text>
+              <Text style={[styles.actionHintTitle, { color: colors.text }]}>Seu mapa pessoal</Text>
+              <Text style={[styles.actionHintSubtitle, { color: colors.textMuted }]}>Toque para salvar • faça pinça para ajustar</Text>
             </View>
           </View>
         </View>
@@ -325,6 +464,43 @@ const styles = StyleSheet.create({
   statusValue: { fontSize: 12, fontWeight: '700', lineHeight: 16, marginTop: 1 },
   statusHint: { fontSize: 10, lineHeight: 14, marginTop: 1 },
   statusDivider: { height: 1, marginVertical: 8 },
+  searchPanel: {
+    borderRadius: 16,
+    borderWidth: 1,
+    left: 14,
+    maxWidth: 520,
+    overflow: 'hidden',
+    position: 'absolute',
+    right: 14,
+    top: 206,
+    zIndex: 1200,
+  },
+  searchRow: { alignItems: 'center', flexDirection: 'row', minHeight: 48, paddingHorizontal: 12 },
+  searchIcon: { fontSize: 25, lineHeight: 26, marginRight: 8, transform: [{ rotate: '-20deg' }] },
+  searchInput: { flex: 1, fontSize: 14, minHeight: 46, paddingVertical: 9 },
+  clearSearch: { alignItems: 'center', borderRadius: 14, height: 28, justifyContent: 'center', marginLeft: 8, width: 28 },
+  clearSearchText: { fontSize: 22, lineHeight: 23 },
+  searchResults: { borderTopWidth: 1, paddingVertical: 5 },
+  searchResult: { alignItems: 'center', flexDirection: 'row', minHeight: 52, paddingHorizontal: 13, paddingVertical: 7 },
+  resultPin: { borderColor: '#ffffff', borderRadius: 9, borderWidth: 2, height: 18, transform: [{ rotate: '-45deg' }], width: 18 },
+  resultCopy: { flex: 1, marginLeft: 11 },
+  resultName: { fontSize: 13, fontWeight: '800' },
+  resultDescription: { fontSize: 11, marginTop: 2 },
+  resultAction: { fontSize: 12, fontWeight: '800', marginLeft: 10 },
+  emptySearch: { fontSize: 12, lineHeight: 17, paddingHorizontal: 14, paddingVertical: 12 },
+  mapActions: {
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
+    position: 'absolute',
+    right: 14,
+    top: 268,
+    zIndex: 1100,
+  },
+  mapAction: { alignItems: 'center', height: 46, justifyContent: 'center', minWidth: 52, paddingHorizontal: 7 },
+  mapActionIcon: { fontSize: 25, fontWeight: '700', lineHeight: 27 },
+  fitActionText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.1 },
+  mapActionDivider: { height: 1 },
   bottomStack: {
     bottom: 16,
     left: 14,

@@ -19,10 +19,11 @@ function LocalCoordinateMap({
   onMapPress,
   onEditPin,
   title = 'Mapa externo indisponível',
+  viewportCommand,
 }) {
   const { colors } = useTheme();
   const [layout, setLayout] = useState({ height: 0, width: 0 });
-  const region = useMemo(
+  const defaultRegion = useMemo(
     () => ({
       latitude: location?.latitude ?? DEFAULT_REGION.latitude,
       longitude: location?.longitude ?? DEFAULT_REGION.longitude,
@@ -31,8 +32,81 @@ function LocalCoordinateMap({
     }),
     [location],
   );
+  const [region, setRegion] = useState(defaultRegion);
+  const handledCommandRef = useRef(null);
+  const pinchRef = useRef(null);
+  const suppressPressUntilRef = useRef(0);
+
+  useEffect(() => {
+    setRegion(defaultRegion);
+  }, [defaultRegion]);
+
+  useEffect(() => {
+    if (!viewportCommand || handledCommandRef.current === viewportCommand.id) return;
+    handledCommandRef.current = viewportCommand.id;
+
+    if (viewportCommand.type === 'focus' && viewportCommand.coordinate) {
+      setRegion({
+        latitude: viewportCommand.coordinate.latitude,
+        longitude: viewportCommand.coordinate.longitude,
+        latitudeDelta: 0.015,
+        longitudeDelta: 0.015,
+      });
+      return;
+    }
+
+    if (viewportCommand.type === 'fit' && viewportCommand.coordinates?.length) {
+      const latitudes = viewportCommand.coordinates.map((coordinate) => coordinate.latitude);
+      const longitudes = viewportCommand.coordinates.map((coordinate) => coordinate.longitude);
+      const minLatitude = Math.min(...latitudes);
+      const maxLatitude = Math.max(...latitudes);
+      const minLongitude = Math.min(...longitudes);
+      const maxLongitude = Math.max(...longitudes);
+      setRegion({
+        latitude: (minLatitude + maxLatitude) / 2,
+        longitude: (minLongitude + maxLongitude) / 2,
+        latitudeDelta: Math.min(170, Math.max(0.02, (maxLatitude - minLatitude) * 1.45)),
+        longitudeDelta: Math.min(360, Math.max(0.02, (maxLongitude - minLongitude) * 1.45)),
+      });
+    }
+  }, [viewportCommand]);
+
+  function touchDistance(touches) {
+    const [first, second] = touches;
+    return Math.hypot(second.pageX - first.pageX, second.pageY - first.pageY);
+  }
+
+  function handleTouchStart(event) {
+    const touches = Array.from(event.nativeEvent.touches ?? []);
+    if (touches.length >= 2) {
+      pinchRef.current = {
+        distance: Math.max(1, touchDistance(touches)),
+        region,
+      };
+    } else {
+      pinchRef.current = null;
+    }
+  }
+
+  function handleTouchMove(event) {
+    const touches = Array.from(event.nativeEvent.touches ?? []);
+    if (touches.length < 2 || !pinchRef.current) return;
+    const scale = pinchRef.current.distance / Math.max(1, touchDistance(touches));
+    suppressPressUntilRef.current = Date.now() + 400;
+    setRegion({
+      ...pinchRef.current.region,
+      latitudeDelta: Math.max(0.002, Math.min(170, pinchRef.current.region.latitudeDelta * scale)),
+      longitudeDelta: Math.max(0.002, Math.min(360, pinchRef.current.region.longitudeDelta * scale)),
+    });
+  }
+
+  function handleTouchEnd(event) {
+    const touches = Array.from(event.nativeEvent.touches ?? []);
+    if (touches.length < 2) pinchRef.current = null;
+  }
 
   function coordinateFromTouch(event) {
+    if (Date.now() < suppressPressUntilRef.current) return;
     if (!layout.width || !layout.height) return;
     const { locationX, locationY } = event.nativeEvent;
     onMapPress({
@@ -54,6 +128,9 @@ function LocalCoordinateMap({
       accessibilityLabel="Área local de coordenadas"
       onLayout={(event) => setLayout(event.nativeEvent.layout)}
       onPress={coordinateFromTouch}
+      onTouchEnd={handleTouchEnd}
+      onTouchMove={handleTouchMove}
+      onTouchStart={handleTouchStart}
       style={[styles.localMap, { backgroundColor: colors.background }]}
     >
       {[20, 40, 60, 80].map((position) => (
@@ -181,7 +258,7 @@ function buildOpenStreetMapHtml({ colors, location, pins, theme }) {
         left: 10px;
         overflow: hidden;
         position: absolute;
-        top: 190px;
+        top: 268px;
       }
       .zoom-button {
         align-items: center;
@@ -230,7 +307,10 @@ function buildOpenStreetMapHtml({ colors, location, pins, theme }) {
         let ready = false;
         let generation = 0;
         let drag = null;
+        let pinch = null;
         let frame = null;
+        let lastCommandId = null;
+        const activePointers = new Map();
 
         function clampLatitude(latitude) {
           return Math.max(-85.05112878, Math.min(85.05112878, latitude));
@@ -295,11 +375,13 @@ function buildOpenStreetMapHtml({ colors, location, pins, theme }) {
           const height = map.clientHeight;
           const worldCenter = project(center.latitude, center.longitude);
           const topLeft = { x: worldCenter.x - width / 2, y: worldCenter.y - height / 2 };
-          const tileCount = Math.pow(2, zoom);
-          const startX = Math.floor(topLeft.x / tileSize);
-          const endX = Math.floor((topLeft.x + width) / tileSize);
-          const startY = Math.max(0, Math.floor(topLeft.y / tileSize));
-          const endY = Math.min(tileCount - 1, Math.floor((topLeft.y + height) / tileSize));
+          const tileZoom = Math.max(2, Math.min(19, Math.floor(zoom)));
+          const renderedTileSize = tileSize * Math.pow(2, zoom - tileZoom);
+          const tileCount = Math.pow(2, tileZoom);
+          const startX = Math.floor(topLeft.x / renderedTileSize);
+          const endX = Math.floor((topLeft.x + width) / renderedTileSize);
+          const startY = Math.max(0, Math.floor(topLeft.y / renderedTileSize));
+          const endY = Math.min(tileCount - 1, Math.floor((topLeft.y + height) / renderedTileSize));
           let pending = 0;
           let failures = 0;
 
@@ -328,9 +410,11 @@ function buildOpenStreetMapHtml({ colors, location, pins, theme }) {
               tile.draggable = false;
               tile.onload = () => finishTile(true);
               tile.onerror = () => finishTile(false);
-              tile.style.left = (x * tileSize - topLeft.x) + 'px';
-              tile.style.top = (y * tileSize - topLeft.y) + 'px';
-              tile.src = 'https://tile.openstreetmap.org/' + zoom + '/' + wrappedX + '/' + y + '.png';
+              tile.style.height = renderedTileSize + 'px';
+              tile.style.left = (x * renderedTileSize - topLeft.x) + 'px';
+              tile.style.top = (y * renderedTileSize - topLeft.y) + 'px';
+              tile.style.width = renderedTileSize + 'px';
+              tile.src = 'https://tile.openstreetmap.org/' + tileZoom + '/' + wrappedX + '/' + y + '.png';
               tilePane.appendChild(tile);
             }
           }
@@ -348,15 +432,124 @@ function buildOpenStreetMapHtml({ colors, location, pins, theme }) {
           scheduleRender();
         }
 
+        function midpoint(first, second) {
+          return { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 };
+        }
+
+        function distance(first, second) {
+          return Math.hypot(second.x - first.x, second.y - first.y);
+        }
+
+        function beginPinch() {
+          const points = Array.from(activePointers.values()).slice(0, 2);
+          if (points.length < 2) return;
+          const rect = map.getBoundingClientRect();
+          const focalPoint = midpoint(points[0], points[1]);
+          const worldCenter = project(center.latitude, center.longitude);
+          pinch = {
+            anchor: unproject(
+              worldCenter.x + focalPoint.x - rect.left - rect.width / 2,
+              worldCenter.y + focalPoint.y - rect.top - rect.height / 2,
+            ),
+            startDistance: Math.max(1, distance(points[0], points[1])),
+            startZoom: zoom,
+          };
+          drag = null;
+        }
+
+        function updatePinch() {
+          const points = Array.from(activePointers.values()).slice(0, 2);
+          if (!pinch || points.length < 2) return;
+          const rect = map.getBoundingClientRect();
+          const focalPoint = midpoint(points[0], points[1]);
+          const nextZoom = Math.max(
+            2,
+            Math.min(19, pinch.startZoom + Math.log2(distance(points[0], points[1]) / pinch.startDistance)),
+          );
+          const anchorAtNextZoom = project(pinch.anchor.latitude, pinch.anchor.longitude, nextZoom);
+          zoom = nextZoom;
+          center = unproject(
+            anchorAtNextZoom.x - (focalPoint.x - rect.left - rect.width / 2),
+            anchorAtNextZoom.y - (focalPoint.y - rect.top - rect.height / 2),
+            nextZoom,
+          );
+          scheduleRender();
+        }
+
+        function focusCoordinate(coordinate, targetZoom = 16) {
+          if (!coordinate || !Number.isFinite(coordinate.latitude) || !Number.isFinite(coordinate.longitude)) return;
+          center = { latitude: coordinate.latitude, longitude: coordinate.longitude };
+          zoom = Math.max(2, Math.min(19, targetZoom));
+          scheduleRender();
+        }
+
+        function fitCoordinates(coordinates) {
+          const validCoordinates = (coordinates || []).filter(
+            (coordinate) => Number.isFinite(coordinate.latitude) && Number.isFinite(coordinate.longitude),
+          );
+          if (!validCoordinates.length) return;
+          if (validCoordinates.length === 1) {
+            focusCoordinate(validCoordinates[0], 16);
+            return;
+          }
+
+          const points = validCoordinates.map((coordinate) => project(coordinate.latitude, coordinate.longitude, 0));
+          const minX = Math.min(...points.map((point) => point.x));
+          const maxX = Math.max(...points.map((point) => point.x));
+          const minY = Math.min(...points.map((point) => point.y));
+          const maxY = Math.max(...points.map((point) => point.y));
+          const availableWidth = Math.max(80, map.clientWidth - 112);
+          const availableHeight = Math.max(80, map.clientHeight - 240);
+          const zoomX = maxX === minX ? 16 : Math.log2(availableWidth / (maxX - minX));
+          const zoomY = maxY === minY ? 16 : Math.log2(availableHeight / (maxY - minY));
+          zoom = Math.max(2, Math.min(16, zoomX, zoomY));
+          center = unproject((minX + maxX) / 2, (minY + maxY) / 2, 0);
+          scheduleRender();
+        }
+
+        function handleViewportCommand(event) {
+          try {
+            const command = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+            if (!command || command.id === lastCommandId) return;
+            lastCommandId = command.id;
+            if (command.type === 'focus') focusCoordinate(command.coordinate, command.zoom);
+            if (command.type === 'fit') fitCoordinates(command.coordinates);
+          } catch (_error) {
+            // Mensagens que não pertencem ao mapa são ignoradas.
+          }
+        }
+
         map.addEventListener('pointerdown', (event) => {
           if (event.target.closest('.zoom-controls, .attribution, .marker-wrap')) return;
+          event.preventDefault();
+          activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+          try { map.setPointerCapture(event.pointerId); } catch (_error) {}
+
+          if (activePointers.size >= 2) {
+            beginPinch();
+            return;
+          }
+
           const point = project(center.latitude, center.longitude);
-          drag = { moved: false, startX: event.clientX, startY: event.clientY, worldX: point.x, worldY: point.y };
-          map.setPointerCapture(event.pointerId);
+          drag = {
+            moved: false,
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            startY: event.clientY,
+            worldX: point.x,
+            worldY: point.y,
+          };
         });
 
         map.addEventListener('pointermove', (event) => {
-          if (!drag) return;
+          if (!activePointers.has(event.pointerId)) return;
+          event.preventDefault();
+          activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+          if (pinch && activePointers.size >= 2) {
+            updatePinch();
+            return;
+          }
+          if (!drag || drag.pointerId !== event.pointerId) return;
           const dx = event.clientX - drag.startX;
           const dy = event.clientY - drag.startY;
           if (Math.abs(dx) + Math.abs(dy) > 8) drag.moved = true;
@@ -365,7 +558,28 @@ function buildOpenStreetMapHtml({ colors, location, pins, theme }) {
         });
 
         map.addEventListener('pointerup', (event) => {
-          if (!drag) return;
+          if (!activePointers.has(event.pointerId)) return;
+          const wasPinching = Boolean(pinch);
+          activePointers.delete(event.pointerId);
+
+          if (wasPinching) {
+            pinch = null;
+            const remainingPointer = Array.from(activePointers.entries())[0];
+            if (remainingPointer) {
+              const point = project(center.latitude, center.longitude);
+              drag = {
+                moved: true,
+                pointerId: remainingPointer[0],
+                startX: remainingPointer[1].x,
+                startY: remainingPointer[1].y,
+                worldX: point.x,
+                worldY: point.y,
+              };
+            }
+            return;
+          }
+
+          if (!drag || drag.pointerId !== event.pointerId) return;
           const wasMoved = drag.moved;
           drag = null;
           if (!wasMoved) {
@@ -379,7 +593,11 @@ function buildOpenStreetMapHtml({ colors, location, pins, theme }) {
           }
         });
 
-        map.addEventListener('pointercancel', () => { drag = null; });
+        map.addEventListener('pointercancel', (event) => {
+          activePointers.delete(event.pointerId);
+          drag = null;
+          pinch = null;
+        });
         document.getElementById('zoom-in').addEventListener('click', (event) => {
           event.stopPropagation();
           setZoom(zoom + 1);
@@ -388,6 +606,8 @@ function buildOpenStreetMapHtml({ colors, location, pins, theme }) {
           event.stopPropagation();
           setZoom(zoom - 1);
         });
+        window.addEventListener('message', handleViewportCommand);
+        document.addEventListener('message', handleViewportCommand);
         window.addEventListener('resize', scheduleRender);
         render();
       })();
@@ -403,11 +623,13 @@ export default function PlatformMap({
   onEditPin,
   onExternalMapStatusChange,
   reloadToken,
+  viewportCommand,
 }) {
   const { theme, colors } = useTheme();
   const [mapReady, setMapReady] = useState(false);
   const [mapUnavailable, setMapUnavailable] = useState(false);
   const loadTimeoutRef = useRef(null);
+  const webViewRef = useRef(null);
   const pinVersion = pins.map((pin) => `${pin._id}:${pin.updatedAt ?? ''}`).join('|');
   const documentKey = `${reloadToken}:${theme}:${location?.latitude ?? ''}:${location?.longitude ?? ''}:${pinVersion}`;
   const mapHtml = useMemo(
@@ -431,6 +653,11 @@ export default function PlatformMap({
       loadTimeoutRef.current = null;
     };
   }, [documentKey, onExternalMapStatusChange]);
+
+  useEffect(() => {
+    if (!mapReady || !viewportCommand) return;
+    webViewRef.current?.postMessage(JSON.stringify(viewportCommand));
+  }, [mapReady, viewportCommand]);
 
   function clearLoadTimeout() {
     if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
@@ -496,6 +723,9 @@ export default function PlatformMap({
         onError={handleWebViewError}
         onMessage={handleMessage}
         originWhitelist={['*']}
+        overScrollMode="never"
+        ref={webViewRef}
+        scrollEnabled={false}
         setSupportMultipleWindows={false}
         source={{ html: mapHtml, baseUrl: 'https://www.openstreetmap.org/' }}
         style={[styles.webMap, { backgroundColor: colors.background }]}
@@ -514,6 +744,7 @@ export default function PlatformMap({
             onMapPress={onMapPress}
             pins={pins}
             title={mapUnavailable ? 'OpenStreetMap indisponível' : 'Carregando OpenStreetMap…'}
+            viewportCommand={viewportCommand}
           />
           {!mapUnavailable ? (
             <View pointerEvents="none" style={[styles.loadingPill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
