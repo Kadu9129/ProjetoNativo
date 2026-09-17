@@ -1,19 +1,44 @@
-# Artefatos de entrega
+# MapPin
 
-## MapPin 1.0.0 — versão atualizada
+Aplicativo de mapa pessoal e privado feito com Expo/React Native para Android, iOS e web. Permite salvar e encontrar lugares sem conta e mantém os dados somente no dispositivo.
 
-- Arquivo: `MapPin-1.0.0-atualizado.apk`
-- Gerado em: 17/09/2026 pelo EAS Build `9488fa3a-4de3-4150-b498-30447540cdb4`
-- Tamanho: 74.724.324 bytes (71,26 MiB)
-- Pacote Android: `com.mappin.app`
-- Nome do aplicativo: `MapPin`
-- Version code: `1`
-- Min SDK: `24`
-- Target SDK: `36`
-- Arquiteturas: `arm64-v8a`, `armeabi-v7a`, `x86` e `x86_64`
-- Assinatura: APK Signature Scheme v2, keystore remoto do EAS
-- SHA-256: `A5ACB4AB5A0998454CA9B8F395B593B7C339667BB8F824617F674E683F9B214C`
+## Recursos
 
-Este APK contém a versão local e offline-first do MapPin, com CRUD de lugares persistido em SQLite, busca local, atalhos de enquadramento e localização e zoom por pinça. O aplicativo não usa backend nem chave de API. O mapa online usa tiles do OpenStreetMap; quando não há internet, os dados e marcadores continuam disponíveis na grade local.
+- cadastro, edição, busca e exclusão de lugares;
+- zoom por pinça, roda do mouse e botões `+`/`−`;
+- atalhos para localização atual e enquadramento dos marcadores;
+- tema claro/escuro;
+- armazenamento local com SQLite e funcionamento offline;
+- mapa do OpenStreetMap sem chave de API.
 
-O APK foi validado com `apksigner` e contém manifesto, bytecode e recursos Android. Para publicação em uma loja, gere uma versão de produção e mantenha a chave de assinatura em local seguro.
+## Executar
+
+Requer Node.js 22.5 ou superior e npm.
+
+```bash
+npm install
+npm run dev:frontend
+```
+
+No Expo, pressione `w`, `a` ou `i` para abrir na web, Android ou iOS.
+
+## Builds
+
+```bash
+npm run build:web
+npm run build:apk
+```
+
+O APK instalável mais recente está em [`artifacts/MapPin-1.0.0-atualizado.apk`](artifacts/MapPin-1.0.0-atualizado.apk). Os dados de assinatura e SHA-256 estão em [`artifacts/README.md`](artifacts/README.md).
+
+## Offline e privacidade
+
+Os lugares são gravados no banco local `mappin.db` e continuam disponíveis sem internet. Somente o fundo do OpenStreetMap depende de conexão; nenhum marcador é enviado para servidor.
+
+## Verificação
+
+```bash
+npm test
+npx expo-doctor frontend
+npm run build:web
+```
