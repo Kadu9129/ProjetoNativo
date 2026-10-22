@@ -1,0 +1,38 @@
+
+> mappin-app@1.0.0 test
+> npm test --workspace frontend
+
+
+> mappin-frontend@1.0.0 test
+> node --test test/*.test.cjs
+
+✔ CT01: localização concedida retorna coordenadas sem solicitar novamente (5.4843ms)
+✔ CT01: permissão inicial é solicitada e a concessão permite localizar (1.2735ms)
+✔ CT02: recusa não consulta GPS nem retorna coordenadas (1.1021ms)
+✔ CT06: bloqueio permanente orienta configurações e não repete o pedido (2.4164ms)
+✔ CT06: recusa permanente no diálogo também orienta configurações (0.7007ms)
+✔ CT07: GPS desligado permite recuperação sem posição fictícia (0.7587ms)
+✔ CT08: timeout encerra a tentativa e ignora resposta tardia (25.5476ms)
+✔ CT08: erro do provedor é falha, nunca sucesso (3.7499ms)
+✔ CT08: rejeita coordenadas inválidas do provedor (3.388ms)
+✔ detecta o modo avião e mantém o mapa externo como indisponível (2.7272ms)
+✔ recarrega o mapa externo somente na transição de offline para online (1.2833ms)
+✔ diferencia falha do provedor externo de ausência de internet (0.5791ms)
+(node:19556) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ cadastra e consulta lugares depois de fechar e reabrir o banco (95.6457ms)
+✔ mantém edição e exclusão depois de novas reaberturas (111.2585ms)
+✔ rejeita dados inválidos antes de gravar no SQLite (51.6911ms)
+✔ CT04: campos vazios ou só com espaços são rejeitados (2.9345ms)
+✔ CT09: nome aceita 1, 99 e 100 caracteres e rejeita 0 e 101 (1.5934ms)
+✔ CT10: descrição aceita 1, 499 e 500 caracteres e rejeita 0 e 501 (0.8747ms)
+✔ normaliza espaços sem alterar as coordenadas do lugar (2.0806ms)
+✔ aceita extremos geográficos e rejeita valores fora deles ou não numéricos (3.0917ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 588.6738
