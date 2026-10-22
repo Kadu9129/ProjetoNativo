@@ -1,9 +1,10 @@
 import * as Location from 'expo-location';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Keyboard,
+  Linking,
   Platform,
   Pressable,
   StyleSheet,
@@ -18,12 +19,15 @@ import ThemeToggleButton from '../components/ThemeToggleButton';
 import { useTheme } from '../context/ThemeContext';
 import useExternalMapStatus from '../hooks/useExternalMapStatus';
 import usePins from '../hooks/usePins';
+import { locateUser } from '../services/locationFlow';
 
 export default function MapScreen() {
   const { colors } = useTheme();
   const [location, setLocation] = useState(null);
-  const [locationMessage, setLocationMessage] = useState('Buscando sua localização…');
-  const [locating, setLocating] = useState(true);
+  const [locationMessage, setLocationMessage] = useState('');
+  const [locationBlocked, setLocationBlocked] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const locationRequestRef = useRef(false);
   const [pendingCoordinate, setPendingCoordinate] = useState(null);
   const [editingPin, setEditingPin] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -48,22 +52,19 @@ export default function MapScreen() {
   } = usePins();
 
   const requestCurrentLocation = useCallback(async ({ focus = false } = {}) => {
+    if (locationRequestRef.current) return null;
+    locationRequestRef.current = true;
     setLocating(true);
+    setLocationBlocked(false);
     setLocationMessage('Buscando sua localização…');
     try {
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (permission.status !== 'granted') {
-        setLocationMessage('Localização não permitida. Você ainda pode explorar o mapa.');
+      const result = await locateUser(Location);
+      if (result.status !== 'located') {
+        setLocationMessage(result.message);
+        setLocationBlocked(result.status === 'blocked');
         return null;
       }
-
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      const nextLocation = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      };
+      const nextLocation = result.coordinate;
       setLocation(nextLocation);
       setLocationMessage('');
       if (focus) {
@@ -75,17 +76,11 @@ export default function MapScreen() {
         });
       }
       return nextLocation;
-    } catch (_error) {
-      setLocationMessage('Localização indisponível. Você ainda pode explorar o mapa.');
-      return null;
     } finally {
+      locationRequestRef.current = false;
       setLocating(false);
     }
   }, []);
-
-  useEffect(() => {
-    requestCurrentLocation();
-  }, [requestCurrentLocation]);
 
   const handleMapPress = useCallback((coordinate) => {
     setEditingPin(null);
@@ -338,6 +333,17 @@ export default function MapScreen() {
             <View style={[styles.message, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={[styles.messageDot, { backgroundColor: colors.info }]} />
               <Text style={[styles.messageText, { color: colors.textMuted }]}>{locationMessage}</Text>
+              {locationBlocked && Platform.OS !== 'web' ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => Linking.openSettings().catch(() => {
+                    setLocationMessage('Abra as configurações do sistema e permita a localização para o MapPin.');
+                  })}
+                  style={styles.retryButton}
+                >
+                  <Text style={[styles.retry, { color: colors.primary }]}>Configurações</Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : null}
 

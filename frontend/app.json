@@ -37,7 +37,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Allow MapPin to use your location to center the map."
+          "locationWhenInUsePermission": "Permita que o MapPin use sua localização para centralizar o mapa enquanto você usa o aplicativo."
         }
       ],
       "expo-sqlite"
